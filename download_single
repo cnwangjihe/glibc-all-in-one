@@ -8,10 +8,9 @@ if [ ! -d "debs" ];  then
     mkdir debs
 fi
 
-SOURCE="http://old-releases.ubuntu.com/ubuntu/pool/main/g/glibc"
-
 LIBC_PREFIX="libc6_"
 LIBC_DBG_PREFIX="libc6-dbg_"
+LIBC_SRC_PREFIX="glibc-source_"
 
 die() {
   echo >&2 $1
@@ -19,21 +18,27 @@ die() {
 }
 
 usage() {
-  echo >&2 "Usage: $0 id"
+  echo >&2 "Usage: $0 id url src_url"
   exit 2
 }
 
 download_single() {
   local id=$1
+  local LOC_SOURCE=$2
+  local LOC_SOURCE_SRC=$3
+  local sid=${id/amd64/all}
+  sid=${sid/i386/all}
   local deb_name=$LIBC_PREFIX$id.deb
   local dbg_name=$LIBC_DBG_PREFIX$id.deb
+  local src_name=$LIBC_SRC_PREFIX$sid.deb
+
   echo "Getting $id"
   if [ -d "libs/$id" ]; then
     die "  --> Downloaded before. Remove it to download again."
   fi
 
   # download binary package
-  local url="$SOURCE/$deb_name"
+  local url="$LOC_SOURCE/$deb_name"
   echo "  -> Location: $url"
   echo "  -> Downloading libc binary package"
   wget "$url" 2>/dev/null -O debs/$deb_name || die "Failed to download package from $url"
@@ -44,7 +49,7 @@ download_single() {
   echo "  -> Package saved to libs/$id"
 
   # download debug info package
-  local url="$SOURCE/$dbg_name"
+  local url="$LOC_SOURCE/$dbg_name"
   echo "  -> Location: $url"
   echo "  -> Downloading libc debug package"
   wget "$url" 2>/dev/null -O debs/$dbg_name || die "Failed to download package from $url"
@@ -53,9 +58,21 @@ download_single() {
   mkdir libs/$id/.debug
   ./extract debs/$dbg_name libs/$id/.debug
   echo "  -> Package saved to libs/$id/.debug"
+
+  # download source package
+  local url="$LOC_SOURCE_SRC/$src_name"
+  echo "  -> Location: $url"
+  echo "  -> Downloading libc source package"
+  wget "$url" 2>/dev/null -O debs/$src_name || die "Failed to download package from $url"
+  echo "  -> Extracting libc source package"
+
+  mkdir libs/$id/src
+  ./extract_src debs/$src_name libs/$id/src
+  echo "  -> Package saved to libs/$id/src"
 }
 
-if [[ $# != 1 ]]; then
+if [[ $# != 3 ]]; then
   usage
 fi
-download_single "$1"
+
+download_single "$1" "$2" "$3"

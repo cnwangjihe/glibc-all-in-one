@@ -1,15 +1,15 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import re
 import requests
 
-common_url = 'https://mirror.tuna.tsinghua.edu.cn/ubuntu/pool/main/g/glibc/'
+common_url = 'https://mirrors.ustc.edu.cn/ubuntu/pool/main/g/glibc'
 # url = 'http://archive.ubuntu.com/ubuntu/pool/main/g/glibc/'
-old_url = 'http://old-releases.ubuntu.com/ubuntu/pool/main/g/glibc/'
+old_url = 'https://mirrors.ustc.edu.cn/ubuntu-old-releases/ubuntu/pool/main/g/glibc'
 
 
 def get_list(url, arch):
     content = requests.get(url).content
-    return re.findall('libc6_(2\.[0-9][0-9]-[0-9]ubuntu[0-9\.]*_{}).deb'.format(arch), content)
+    return re.findall(bytes('libc6_(2\.[0-9]+(.[0-9]+)*(~[0-9]+)*-[0-9]ubuntu[0-9\.]*_{}).deb'.format(arch),encoding="utf-8"), content)
 
 
 common_list = get_list(common_url, 'amd64')
@@ -17,7 +17,7 @@ common_list += get_list(common_url, 'i386')
 
 with open('list', 'w') as f:
     for l in sorted(set(common_list)):
-        f.write(l + '\n')
+        f.write(l[0].decode("utf-8") + '\n')
 
 print('[+] Common list has been save to "list"')
 
@@ -26,6 +26,6 @@ old_list += get_list(old_url, 'i386')
 
 with open('old_list', 'w') as f:
     for l in sorted(set(old_list)):
-        f.write(l + '\n')
+        f.write(l[0].decode("utf-8") + '\n')
 
 print('[+] Old-release list has been save to "old_list"')

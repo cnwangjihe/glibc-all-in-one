@@ -1,0 +1,36 @@
+#!/bin/bash
+cd "$(dirname "$0")"
+
+die() {
+  echo >&2 $1
+  exit 1
+}
+
+usage() {
+  echo -e >&2 "Usage: $0 deb output"
+  exit 2
+}
+
+extract_src() {
+    local deb=$1
+    local out=$2
+    if [ ! -d "$out" ]; then
+        mkdir $out
+    fi
+    local tmp=`mktemp -d`
+    dpkg -x $deb $tmp || die "dpkg failed"
+    local tarfile=$(ls $tmp/usr/src/glibc/*.tar.xz)
+    mkdir $tmp/out
+    tar -xf $tarfile -C $tmp/out
+    local srcdir=$(ls $tmp/out)
+    cp -rP $tmp/out/$srcdir/* $out 2>/dev/null || die "Failed to save. Check it manually $tmp"
+    rm -rf $tmp
+}
+
+if [[ $# -ne 2 ]]; then
+    usage
+fi
+
+extract_src "$1" "$2"
+
+
