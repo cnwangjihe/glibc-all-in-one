@@ -1,0 +1,121 @@
+#!/usr/bin/python3
+
+import os
+import sys
+from pwn import *
+import subprocess
+from hashlib import sha256
+import shutil
+import argparse
+
+# BASE_GLIBC_DIR = "/lib/glibc/"
+BASE_GLIBC_DIR = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "libs"))
+LIBC_MARK = b"GNU C Library (Ubuntu GLIBC "
+
+def confirm():
+    if input("continue? (Y/n)").strip().lower() == "n":
+        info(f"cancelled.")
+        exit(0)
+
+def main():
+    parser = argparse.ArgumentParser(description='Auto patch ELF file with specific libc.')
+    parser.add_argument('elf_to_patch', metavar='ELF_FILE', type=str,
+                        help='ELF file to patch')
+    parser.add_argument('--libc', metavar='LIBC_FILE', type=str,
+                        help="libc file to extract verion info. if not provided, we will try to search elf file named `*libc*` under ELF_FILE's dir")
+
+    elf_path = parser.parse_args().elf_to_patch
+
+    info(f"glibc base dir: {BASE_GLIBC_DIR}")
+
+    libc_path = parser.parse_args().libc
+
+    if libc_path is None:
+        base_dir = os.path.dirname(elf_path)
+        if base_dir == "":
+            base_dir = "."
+        info(f"try to find libc under `{base_dir}`")
+        possible = []
+        for file in os.listdir(base_dir):
+            if file.find("libc") != -1 and open(file, "rb").read(4) == b"\x7FELF":
+                possible.append(file)
+        if len(possible) != 1:
+            error(f"failed to detect libc, possible: {possible}")
+        libc_path = os.path.join(base_dir, possible[0])
+
+    elf = ELF(elf_path)
+    libc = ELF(libc_path)
+    if libc.arch != elf.arch:
+        error(f"`{elf_path}` and `{libc_path}` arch not match!")
+
+    if elf.statically_linked:
+        error(f"`{elf_path}` is statically linked.")
+
+    # get all shared library
+    libs = []
+    libc_origin = None
+    for d in elf.get_section_by_name('.dynamic').iter_tags():
+        if d.entry.d_tag == "DT_NEEDED":
+            lib :str = d.needed
+            if lib.find("libc.so.6") != -1:
+                libc_origin = lib
+                if libc_origin.startswith(BASE_GLIBC_DIR):
+                    error("already patched.")
+                success(f"libc: {libc_origin}")
+            else:
+                libs.append(lib)
+
+    if libc_origin is None:
+        error(f"no linked libc found in `{elf_path}`")
+
+    ld_origin = elf.linker.decode()
+    success(f"linker: {ld_origin}")
+    if len(libs) != 0:
+        warning(f"linked shared librarys: {libs}")
+        confirm()
+
+    with open(libc_path, "rb") as f:
+        data = f.read()
+        libc_hash = sha256(data).digest()
+        pos = data.find(LIBC_MARK)
+        if pos == -1:
+            error(f"`{libc_path}` is not a ubuntu libc.")
+        data = data[pos + len(LIBC_MARK):]
+        libc_version = data[:data.find(b")")].decode()
+    libc_version = libc_version + "_" + libc.arch
+    success(f"libc version: {libc_version}")
+    patch_base_path = os.path.join(BASE_GLIBC_DIR, libc_version)
+
+    patched_libc = os.path.join(patch_base_path, libc_origin)
+
+    with open(patched_libc, "rb") as f:
+        if sha256(f.read()).digest() != libc_hash:
+            error("libc hash not match!")
+
+    command_ld = ["patchelf", "--set-interpreter", os.path.join(patch_base_path, os.path.basename(ld_origin)), elf_path]
+    command_libc = ["patchelf", "--replace-needed", libc_origin, patched_libc, elf_path]
+    info(f"replace ld: {command_ld}")
+    info(f"replace libc: {command_libc}")
+
+    confirm()
+
+    backup = elf_path + '.orig'
+    if os.path.exists(backup):
+        warning(f"backup exists, ignore")
+    else:
+        shutil.copy2(elf_path, backup)
+        info(f"created backup: {backup}")
+
+    info(f"ld result: {subprocess.run(command_ld).returncode}")
+    info(f"libc result: {subprocess.run(command_libc).returncode}")
+
+    result = subprocess.run(["ldd", elf_path], capture_output=True, text=True)
+    info(f"ldd result:")
+    print(result.stdout, end="")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except PwnlibException:
+        exit(-1)

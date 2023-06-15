@@ -22,10 +22,11 @@ extract() {
 
       cp -P $tmp/usr/lib/debug/lib/x86_64-linux-gnu/* $out 2>/dev/null \
       || cp -P $tmp/usr/lib/debug/lib/i386-linux-gnu/* $out 2>/dev/null \
-      || cp -P $tmp/lib/*/* $out 2>/dev/null || cp -P $tmp/lib32/* $out 2>/dev/null \
+      || cp -rP $tmp/usr/lib/debug/.build-id $out 2>/dev/null \
+      || cp -rP $tmp/lib/*/* $out 2>/dev/null || cp -P $tmp/lib32/* $out 2>/dev/null \
       || cp -P $tmp/usr/lib/debug/lib/*/* $out 2>/dev/null || cp -P $tmp/usr/lib/debug/lib32/* $out 2>/dev/null \
       || die "Failed to save. Check it manually $tmp"
-    
+
     rm -rf $tmp
 }
 

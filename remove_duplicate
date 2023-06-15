@@ -1,0 +1,23 @@
+#!/bin/python3
+
+import os
+import argparse
+import re
+
+parser = argparse.ArgumentParser(description='Delete duplicate and out-dated items in list and old_list.')
+parser.add_argument('-d', metavar='DIR', type=str,
+                    help='dir to compare with', default="./libs")
+
+DIR = parser.parse_args().d
+
+now = os.listdir(DIR)
+
+lists = ["./list", "./old_list"]
+
+for l in lists:
+    with open(l, "r") as f:
+        valid_list = re.findall(r"2\.\d{2}-.*\n", f.read())
+    with open(l, "w") as f:
+        result = list(filter(lambda x: x[:-1] not in now, valid_list))
+        f.writelines(result)
+    print("[+] Removed {} items in {}, left: {}".format(len(valid_list) - len(result), l, len(result)))

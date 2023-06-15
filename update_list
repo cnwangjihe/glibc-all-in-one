@@ -2,9 +2,9 @@
 import re
 import requests
 
-common_url = 'https://mirrors.ustc.edu.cn/ubuntu/pool/main/g/glibc'
+common_url = 'https://mirrors.ustc.edu.cn/ubuntu/pool/main/g/glibc/'
 # url = 'http://archive.ubuntu.com/ubuntu/pool/main/g/glibc/'
-old_url = 'https://mirrors.ustc.edu.cn/ubuntu-old-releases/ubuntu/pool/main/g/glibc'
+old_url = 'https://mirrors.ustc.edu.cn/ubuntu-old-releases/ubuntu/pool/main/g/glibc/'
 
 
 def get_list(url, arch):
